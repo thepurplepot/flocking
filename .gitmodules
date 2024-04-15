@@ -1,0 +1,3 @@
+[submodule "External/ImFrame"]
+	path = External/ImFrame
+	url = https://github.com/JamesBoer/ImFrame.git

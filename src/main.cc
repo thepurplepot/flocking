@@ -1,103 +1,4 @@
-#include <ImFrame.h>
-#include <vector>
-#include <time.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <iostream>
-#include <assert.h>
-#include "boid.hh"
-
-#define GL_LOG_FILE "gl.log"
-#define MAX_BOIDS 500
-
-#ifdef IMFRAME_WINDOWS
-#include <SDKDDKVer.h>
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#endif
-
-typedef struct {
-    vec2 pos;
-    vec3 col;
-} Point;
-
-class MainApp : public ImFrame::ImApp
-{
-public:
-    MainApp(GLFWwindow * window) : ImFrame::ImApp(window) {
-        Init();
-        m_showParams = ImFrame::GetConfigValue("show", "params", m_showParams);
-	    m_showAbout = ImFrame::GetConfigValue("show", "about", m_showAbout);
-    }
-    virtual ~MainApp() {
-        glDeleteProgram(program);
-        glDeleteShader(vertex_shader);
-        glDeleteBuffers(1, &vertex_array);
-
-        ImFrame::SetConfigValue("show", "params", m_showParams);
-        ImFrame::SetConfigValue("show", "about", m_showAbout);
-    }
-    void OnUpdate() override;
-    void OnKeyPress(int key, int mods) override;
-private:
-    const char * vertex_shader_text =
-        R"r(
-        #version 330
-        uniform mat4 MVP;
-        in vec3 vCol;
-        in vec2 vPos;
-        out vec3 colour;
-        void main()
-        {
-            gl_Position = MVP * vec4(vPos, 0.0, 1.0);
-            colour = vCol;
-        }
-        )r";
-
-    const char * fragment_shader_text =
-        R"r(
-        #version 330
-        in vec3 colour;
-        out vec4 fragment;
-        void main()
-        {
-            fragment = vec4(colour, 1.0);
-        }
-        )r";
-
-    GLuint vertex_shader;
-    GLint program;
-    GLint mvp_location;
-    GLint vpos_location;
-    GLint vcol_location;
-    GLuint vertex_array;
-
-    std::vector<Point> points;
-    std::vector<Boid> boids;
-
-    GLfloat visualRange = 0.1f;
-    GLfloat protectedRange = 0.04f;
-    GLfloat separationForce = 0.004f;
-    GLfloat alignmentForce = 0.03f;
-    GLfloat cohesionForce = 0.00025f;
-
-    unsigned int count = MAX_BOIDS;
-
-    bool m_showParams = false;
-    bool m_showAbout = false;
-
-    static bool restart_gl_log();
-    static bool gl_log(const char* message, ...);
-    static bool gl_log_err(const char* message, ...);
-    static void glfw_error_callback(int error, const char* description);
-    static void log_gl_params();
-    void _update_fps_counter(GLFWwindow* window);
-    void Init();
-    void UpdateBoids();
-    void ShowBoids();
-    void updateBoidCount();
-    void ShowParamEditor(bool * p_open = nullptr);
-};
+#include "main.hh"
 
 bool MainApp::restart_gl_log() {
     FILE* file = fopen(GL_LOG_FILE, "w");
@@ -203,19 +104,19 @@ void MainApp::log_gl_params() {
 }
 
 void MainApp::_update_fps_counter(GLFWwindow* window) {
-  static double previous_seconds = glfwGetTime();
-  static int frame_count;
-  double current_seconds = glfwGetTime();
-  double elapsed_seconds = current_seconds - previous_seconds;
-  if (elapsed_seconds > 0.25) {
-    previous_seconds = current_seconds;
-    double fps = (double)frame_count / elapsed_seconds;
-    char tmp[128];
-    snprintf(tmp, 128, "Flocking opengl @ fps: %.2f", fps);
-    glfwSetWindowTitle(window, tmp);
-    frame_count = 0;
-  }
-  frame_count++;
+    static double previous_seconds = glfwGetTime();
+    static int frame_count;
+    double current_seconds = glfwGetTime();
+    double elapsed_seconds = current_seconds - previous_seconds;
+    if (elapsed_seconds > 0.25) {
+        previous_seconds = current_seconds;
+        double fps = (double)frame_count / elapsed_seconds;
+        char tmp[128];
+        snprintf(tmp, 128, "Flocking opengl @ fps: %.2f", fps);
+        glfwSetWindowTitle(window, tmp);
+        frame_count = 0;
+    }
+    frame_count++;
 }
 
 void MainApp::OnUpdate() {
@@ -239,7 +140,7 @@ void MainApp::OnUpdate() {
         ShowParamEditor();
     }
     if (m_showAbout) {
-        ImGui::OpenPopup("About Features");
+        ImGui::OpenPopup("About Flocking");
         // Always center this window when appearing
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -261,7 +162,7 @@ void MainApp::OnUpdate() {
 
 void MainApp::ShowParamEditor(bool * p_open)
 {
-    ImGui::SetNextWindowSize(ImVec2(400, 400), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(400, 500), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Parameters", p_open))
     {
         ImGui::End();
@@ -278,15 +179,33 @@ void MainApp::ShowParamEditor(bool * p_open)
     ImGui::SliderFloat("##AlignmentForce", &alignmentForce, 0.0f, 0.1f, "%.4f");
     ImGui::Text("Cohesion Force");
     ImGui::SliderFloat("##CohesionForce", &cohesionForce, 0.0f, 0.01f, "%.5f");
+    ImGui::Text("Bias Velocity");
+    ImGui::SliderFloat("##BiasVelocity", &biasValue, 0.0f, 0.0001f, "%.8f");
     if (ImGui::Button("Update Parameters")) {
         for (size_t i = 0; i < boids.size(); i++) {
-            boids[i].setParameters(visualRange, protectedRange, separationForce, alignmentForce, cohesionForce);
+            boids[i].setParameters(visualRange, protectedRange, separationForce, alignmentForce, cohesionForce, biasValue);
         }
     }
+    ImGui::Separator();
+    ImGui::Text("Speed Limits");
+    ImGui::SliderFloat("##MinSpeed", &minSpeed, 0.0f, 0.01f, "%.5f");
+    ImGui::SliderFloat("##MaxSpeed", &maxSpeed, 0.0f, 0.01f, "%.5f");
+    if (ImGui::Button("Update Speed Limits")) {
+        for (size_t i = 0; i < boids.size(); i++) {
+            boids[i].setSpeedLimits(minSpeed, maxSpeed);
+        }
+    }
+    ImGui::Separator();
     ImGui::Text("Boid Count");
     ImGui::SliderInt("##BoidCount", (int*)&count, 0, MAX_BOIDS);
     if (ImGui::Button("Update Boid Count")) {
         updateBoidCount();
+    }
+    ImGui::Separator();
+    if (ImGui::Button("Randomise Positions")) {
+        for (size_t i = 0; i < boids.size(); i++) {
+            boids[i].randomisePosition();
+        }
     }
     if (ImGui::Button("Reset")) {
         visualRange = 0.1f;
@@ -295,8 +214,9 @@ void MainApp::ShowParamEditor(bool * p_open)
         alignmentForce = 0.03f;
         cohesionForce = 0.00025f;
         count = MAX_BOIDS;
+        biasValue = 0.000000004f;
         for (size_t i = 0; i < boids.size(); i++) {
-            boids[i].setParameters(visualRange, protectedRange, separationForce, alignmentForce, cohesionForce);
+            boids[i].setParameters(visualRange, protectedRange, separationForce, alignmentForce, cohesionForce, biasValue);
         }
         updateBoidCount();
     }
@@ -315,8 +235,8 @@ void MainApp::OnKeyPress(int key, int mods)
 
 void MainApp::Init()
 {
-    for (size_t i = 0; i < MAX_BOIDS; i++) {
-        Boid boid(i, visualRange, protectedRange, separationForce, alignmentForce, cohesionForce);
+    for (size_t i = 0; i < INITIAL_BOID_COUNT; i++) {
+        Boid boid(i, visualRange, protectedRange, separationForce, alignmentForce, cohesionForce, biasValue);
         if (i % 2 == 0) {
             boid.setGroup(GROUP_A);
         } else {
@@ -396,7 +316,7 @@ void MainApp::updateBoidCount()
     }
     if (count > boids.size() ) {
         for (size_t i = boids.size(); i < count; i++) {
-            Boid boid(i, visualRange, protectedRange, separationForce, alignmentForce, cohesionForce);
+            Boid boid(i, visualRange, protectedRange, separationForce, alignmentForce, cohesionForce, biasValue);
             if (i % 2 == 0) {
                 boid.setGroup(GROUP_A);
             } else {

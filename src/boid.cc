@@ -2,33 +2,37 @@
 #include <random>
 #include <iostream>
 
-Boid::Boid(unsigned int _index, GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce) {
+Boid::Boid(unsigned int _index, GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce, GLfloat _biasValue) {
     index = _index;
     position[0] = rand() % 100 / 100.0f - 0.5f;
     position[1] = rand() % 100 / 100.0f - 0.5f;
     velocity[0] = rand() % 100 / 100.0f - 0.5f;
     velocity[1] = rand() % 100 / 100.0f - 0.5f;
-    colour[0] = 1.0f;
-    colour[1] = 1.0f;
-    colour[2] = 1.0f;
-    setParameters(_visualRange, _protectedRange, _separationForce, _alignmentForce, _cohesionForce);
+    int c = rand() % 3;
+    colour[0] = c == 0 ? 1.0f : 0.0f;
+    colour[1] = c == 1 ? 1.0f : 0.0f;
+    colour[2] = c == 2 ? 1.0f : 0.0f;
+    setParameters(_visualRange, _protectedRange, _separationForce, _alignmentForce, _cohesionForce, _biasValue);
+    setSpeedLimits(0.001f, 0.003f);
     biasValue = INITIAL_BIAS_VALUE;
 }
 
-Boid::Boid(unsigned int _index, vec2 pos, GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce) {
+Boid::Boid(unsigned int _index, vec2 pos, GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce, GLfloat _biasValue) {
     index = _index;
     position[0] = pos[0];
     position[1] = pos[1];
     velocity[0] = rand() % 100 / 100.0f - 0.5f;
     velocity[1] = rand() % 100 / 100.0f - 0.5f;
-    colour[0] = 1.0f;
-    colour[1] = 1.0f;
-    colour[2] = 1.0f;
-    setParameters(_visualRange, _protectedRange, _separationForce, _alignmentForce, _cohesionForce);
+    int c = rand() % 3;
+    colour[0] = c == 0 ? 1.0f : 0.0f;
+    colour[1] = c == 1 ? 1.0f : 0.0f;
+    colour[2] = c == 2 ? 1.0f : 0.0f;
+    setParameters(_visualRange, _protectedRange, _separationForce, _alignmentForce, _cohesionForce, _biasValue);
+    setSpeedLimits(0.001f, 0.003f);
     biasValue = INITIAL_BIAS_VALUE;
 }
 
-void Boid::setParameters(GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce) {
+void Boid::setParameters(GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce, GLfloat _biasValue) {
     visualRange = _visualRange;
     visualRangeSquared = visualRange * visualRange;
     protectedRange = _protectedRange;
@@ -36,6 +40,14 @@ void Boid::setParameters(GLfloat _visualRange, GLfloat _protectedRange, GLfloat 
     separationForce = _separationForce;
     alignmentForce = _alignmentForce;
     cohesionForce = _cohesionForce;
+    if (!incrementBias) {
+        biasValue = _biasValue;
+    }
+}
+
+void Boid::setSpeedLimits(GLfloat _minSpeed, GLfloat _maxSpeed) {
+    minSpeed = _minSpeed;
+    maxSpeed = _maxSpeed;
 }
 
 Boid::~Boid() {
@@ -47,28 +59,35 @@ void Boid::getPosition(vec2& pos) {
     pos[1] = position[1];
 }
 
+void Boid::randomisePosition() {
+    position[0] = rand() % 100 / 100.0f - 0.5f;
+    position[1] = rand() % 100 / 100.0f - 0.5f;
+}
+
 void Boid::getColour(vec3& col) {
     col[0] = colour[0];
     col[1] = colour[1];
     col[2] = colour[2];
 }
 
+void Boid::randomiseVelocity() {
+    velocity[0] = rand() % 100 / 100.0f - 0.5f;
+    velocity[1] = rand() % 100 / 100.0f - 0.5f;
+}
+
 void Boid::setGroup(group_t _group) {
     group = _group;
-    if (group == GROUP_A) {
-        colour[0] = 1.0f;
-        colour[1] = 0.0f;
-        colour[2] = 0.0f;
-    } else {
-        colour[0] = 0.0f;
-        colour[1] = 0.0f;
-        colour[2] = 1.0f;
-    }
+    // if (group == GROUP_A) {
+    //     colour[0] = 1.0f;
+    // } else {
+    //     colour[2] = 1.0f;
+    // }
 }
 
 void Boid::update(const std::vector<Boid> &boids) {
     vec2 positionAvg = {0.0f, 0.0f};
     vec2 velocityAvg = {0.0f, 0.0f};
+    vec3 colourAvg = {0.0f, 0.0f, 0.0f};
     unsigned int count = 0;
     vec2 close_d = {0.0f, 0.0f};
 
@@ -93,6 +112,9 @@ void Boid::update(const std::vector<Boid> &boids) {
             positionAvg[1] += boid.position[1];
             velocityAvg[0] += boid.velocity[0];
             velocityAvg[1] += boid.velocity[1];
+            colourAvg[0] += boid.colour[0];
+            colourAvg[1] += boid.colour[1];
+            colourAvg[2] += boid.colour[2];
             count++;
         }
     }
@@ -102,23 +124,28 @@ void Boid::update(const std::vector<Boid> &boids) {
         positionAvg[1] /= count;
         velocityAvg[0] /= count;
         velocityAvg[1] /= count;
+        colourAvg[0] /= count;
+        colourAvg[1] /= count;
+        colourAvg[2] /= count;
 
         velocity[0] += (positionAvg[0] - position[0]) * cohesionForce + (velocityAvg[0] - velocity[0]) * alignmentForce;
         velocity[1] += (positionAvg[1] - position[1]) * cohesionForce + (velocityAvg[1] - velocity[1]) * alignmentForce;
+        updateColour(colourAvg);
     }
     velocity[0] += close_d[0] * separationForce;
     velocity[1] += close_d[1] * separationForce;
     edgeAvoidance();
-    updateBias();
+    if(incrementBias)
+        updateBias();
     bias();
 
     GLfloat speed = sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
-    if (speed < MIN_SPEED) {
-        velocity[0] *= MIN_SPEED / speed;
-        velocity[1] *= MIN_SPEED / speed;
-    } else if (speed > MAX_SPEED) {
-        velocity[0] *= MAX_SPEED / speed;
-        velocity[1] *= MAX_SPEED / speed;
+    if (speed < minSpeed) {
+        velocity[0] *= minSpeed / speed;
+        velocity[1] *= minSpeed / speed;
+    } else if (speed > maxSpeed) {
+        velocity[0] *= maxSpeed / speed;
+        velocity[1] *= maxSpeed / speed;
     }
     position[0] += velocity[0];
     position[1] += velocity[1];
@@ -172,5 +199,13 @@ void Boid::updateBias() {
                 biasValue = BIAS_INCREMENT;
             }
         }
+    }
+}
+
+// TODO only called when group changes!!
+void Boid::updateColour(vec3 colourAvg) {
+    GLfloat blending = 0.7f;
+    for (int i = 0; i < 3; i++) {
+        colour[i] = blending * abs(position[i]) + (1 - blending) * colourAvg[i];
     }
 }

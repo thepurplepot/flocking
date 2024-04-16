@@ -8,8 +8,6 @@
 #define BIAS_INCREMENT 0.00000001f
 #define EDGE_MARGIN 0.05f
 #define EDGE_FORCE 0.0003f
-#define MAX_SPEED 0.003f
-#define MIN_SPEED 0.001f
 
 typedef enum {
     GROUP_A,
@@ -18,19 +16,23 @@ typedef enum {
 
 class Boid {
 public:
-    Boid(unsigned int _index, GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce);
-    Boid(unsigned int _index, vec2 pos, GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce);
+    Boid(unsigned int _index, GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce, GLfloat _biasValue);
+    Boid(unsigned int _index, vec2 pos, GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce, GLfloat _biasValue);
     virtual ~Boid();
     void update(const std::vector<Boid> &boids);
     void getPosition(vec2& pos);
+    void randomisePosition();
+    void randomiseVelocity();
     void getColour(vec3& col);
     unsigned int getIndex() { return index; }
     void setGroup(group_t _group);
-    void setParameters(GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce);
+    void setParameters(GLfloat _visualRange, GLfloat _protectedRange, GLfloat _separationForce, GLfloat _alignmentForce, GLfloat _cohesionForce, GLfloat _biasValue);
+    void setSpeedLimits(GLfloat _minSpeed, GLfloat _maxSpeed);
 private:
     void edgeAvoidance();
     void bias();
     void updateBias();
+    void updateColour(vec3 colAvg);
     unsigned int index;
     vec2 position;
     vec2 velocity;
@@ -43,5 +45,8 @@ private:
     GLfloat alignmentForce;
     GLfloat cohesionForce;
     GLfloat biasValue;
+    GLfloat maxSpeed;
+    GLfloat minSpeed;
+    bool incrementBias = false;
     group_t group = GROUP_A;
 };
